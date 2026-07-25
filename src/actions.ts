@@ -1,5 +1,5 @@
 import type ModuleInstance from './main.js'
-import { COMMON_PATHS, SOURCES, clampPathValue, pathStep } from './api.js'
+import { GRADE_COMPONENTS, GRADE_WHEELS, NUMERIC_PATHS, RGB_PATHS, SOURCES, clampPathValue, pathStep } from './api.js'
 
 type CommonActionOptions = {
   box: string
@@ -15,7 +15,21 @@ export type ActionsSchema = {
   set_source: { options: CommonActionOptions & { source: string } }
   set_output: { options: CommonActionOptions & { output: string } }
   adjust_path_delta: { options: CommonActionOptions & { path: string; delta: number; clamp: boolean } }
+  reset_path: { options: CommonActionOptions & { path: string } }
+  reset_paths: { options: CommonActionOptions & { paths: string[] } }
+  reset_rgb: { options: CommonActionOptions }
+  reset_grade_wheel: { options: CommonActionOptions & { wheel: string } }
+  reset_all: { options: CommonActionOptions }
 }
+
+const numericPathChoices = NUMERIC_PATHS.map((path) => ({ id: path, label: path }))
+
+const boxOption = {
+  id: 'box',
+  type: 'textinput',
+  label: 'Box id (optional)',
+  default: '',
+} as const
 
 function boxDropdownChoices(self: ModuleInstance): { id: string; label: string }[] {
   return self.getBoxes().map((b) => ({ id: b.id, label: `${b.name || b.id} (${b.id})` }))
@@ -104,7 +118,7 @@ export function UpdateActions(self: ModuleInstance): void {
           type: 'dropdown',
           label: 'Path',
           default: 'temp',
-          choices: COMMON_PATHS.filter((p) => p !== 'source' && p !== 'output').map((p) => ({ id: p, label: p })),
+          choices: numericPathChoices,
           allowCustom: true,
         },
         {
@@ -213,7 +227,7 @@ export function UpdateActions(self: ModuleInstance): void {
           type: 'dropdown',
           label: 'Path',
           default: 'temp',
-          choices: COMMON_PATHS.filter((p) => p !== 'source' && p !== 'output').map((p) => ({ id: p, label: p })),
+          choices: numericPathChoices,
           allowCustom: true,
         },
         {
@@ -237,6 +251,10 @@ export function UpdateActions(self: ModuleInstance): void {
         const delta = Number(event.options.delta) || pathStep(path)
         const current = self.getControlNumber(path)
         if (current === undefined) {
+          // Either state has not arrived yet, or the server build does not
+          // know this path at all - in which case the knob stays dead until
+          // the app is updated, so say so rather than failing silently.
+          self.log('warn', `No known value for '${path}' yet - requesting state. Does the app report this path?`)
           self.requestState(normalizeBox(event.options.box))
           return
         }
@@ -244,6 +262,77 @@ export function UpdateActions(self: ModuleInstance): void {
         const rawNext = current + delta
         const next = event.options.clamp ? clampPathValue(path, rawNext) : rawNext
         self.setPath(path, next, normalizeBox(event.options.box))
+      },
+    },
+    reset_path: {
+      name: 'Reset control path to default',
+      description:
+        'Same as double-clicking the control in the app. Source and output have no default and cannot be reset.',
+      options: [
+        boxOption,
+        {
+          id: 'path',
+          type: 'dropdown',
+          label: 'Path',
+          default: 'temp',
+          choices: numericPathChoices,
+          allowCustom: true,
+        },
+      ],
+      callback: async (event) => {
+        self.resetPath(String(event.options.path), normalizeBox(event.options.box))
+      },
+    },
+    reset_paths: {
+      name: 'Reset several control paths',
+      options: [
+        boxOption,
+        {
+          id: 'paths',
+          type: 'multidropdown',
+          label: 'Paths',
+          default: [],
+          choices: numericPathChoices,
+        },
+      ],
+      callback: async (event) => {
+        const paths = (event.options.paths || []).map((path) => String(path)).filter((path) => path.length > 0)
+        if (paths.length === 0) return
+        self.resetPaths(paths, normalizeBox(event.options.box))
+      },
+    },
+    reset_rgb: {
+      name: 'Reset RGB bias (R, G and B)',
+      options: [boxOption],
+      callback: async (event) => {
+        self.resetPaths(RGB_PATHS, normalizeBox(event.options.box))
+      },
+    },
+    reset_grade_wheel: {
+      name: 'Reset grade wheel',
+      description: 'Resets r, g, b and master of one wheel.',
+      options: [
+        boxOption,
+        {
+          id: 'wheel',
+          type: 'dropdown',
+          label: 'Wheel',
+          default: GRADE_WHEELS[0],
+          choices: GRADE_WHEELS.map((wheel) => ({ id: wheel, label: wheel })),
+        },
+      ],
+      callback: async (event) => {
+        const wheel = String(event.options.wheel)
+        const paths = GRADE_COMPONENTS.map((component) => `grade/${wheel}/${component}`)
+        self.resetPaths(paths, normalizeBox(event.options.box))
+      },
+    },
+    reset_all: {
+      name: 'Reset whole grade',
+      description: 'Resets every resettable control back to neutral.',
+      options: [boxOption],
+      callback: async (event) => {
+        self.resetPaths(undefined, normalizeBox(event.options.box))
       },
     },
   })

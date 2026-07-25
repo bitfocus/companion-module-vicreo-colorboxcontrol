@@ -1,5 +1,5 @@
 import type ModuleInstance from './main.js'
-import { COMMON_PATHS } from './api.js'
+import { COMMON_PATHS, pathVariableId } from './api.js'
 
 export type VariablesSchema = Record<string, string | number>
 
@@ -12,7 +12,7 @@ export function UpdateVariableDefinitions(self: ModuleInstance): void {
   }
 
   for (const path of COMMON_PATHS) {
-    defs[`control_${path.replaceAll('/', '_')}`] = { name: `Control ${path}` }
+    defs[pathVariableId(path)] = { name: `Control ${path}` }
   }
 
   self.setVariableDefinitions(defs)

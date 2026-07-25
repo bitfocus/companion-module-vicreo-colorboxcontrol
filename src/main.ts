@@ -6,7 +6,7 @@ import { UpgradeScripts } from './upgrades.js'
 import { UpdateActions, type ActionsSchema } from './actions.js'
 import { UpdateFeedbacks, type FeedbacksSchema } from './feedbacks.js'
 import { UpdatePresets } from './presets.js'
-import { COMMON_PATHS, clampPathValue, toNumberOrNull } from './api.js'
+import { COMMON_PATHS, clampPathValue, pathVariableId, toNumberOrNull } from './api.js'
 
 export type BoxInfo = {
   id: string
@@ -148,6 +148,22 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
     }
   }
 
+  resetPath(path: string, boxId?: string): void {
+    if (boxId) {
+      this.sendMessage({ op: 'reset', box: boxId, path })
+    } else {
+      this.sendMessage({ op: 'reset', path })
+    }
+  }
+
+  resetPaths(paths?: string[], boxId?: string): void {
+    const msg: Record<string, unknown> = { op: 'resetControls' }
+    if (boxId) msg.box = boxId
+    // Omitting 'paths' entirely resets every resettable control.
+    if (paths && paths.length > 0) msg.paths = paths
+    this.sendMessage(msg)
+  }
+
   setBypass(value: boolean, boxId?: string): void {
     if (boxId) {
       this.sendMessage({ op: 'bypass', box: boxId, value })
@@ -279,8 +295,11 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
         this.boxes = boxes.filter((b): b is BoxInfo => typeof b === 'object' && b !== null && typeof (b as BoxInfo).id === 'string')
         const changed = this.addOutputsFromPaths(msg.paths)
         if (!this.selectedBoxId && this.boxes.length > 0) {
-          this.selectedBoxId = this.boxes[0].id
-          this.selectedBoxName = this.boxes[0].name || this.boxes[0].id
+          // Sync the server's session-level selection too, not just our local
+          // bookkeeping - otherwise 'set'/'adjust_path_delta' calls that omit
+          // box (e.g. the rotary knob presets) hit "No box selected" on the
+          // server and silently do nothing.
+          this.selectBox(this.boxes[0].id)
         }
         this.checkAllFeedbacks()
         this.updateActions()
@@ -409,7 +428,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
     }
 
     for (const path of COMMON_PATHS) {
-      const key = `control_${path.replaceAll('/', '_')}`
+      const key = pathVariableId(path)
       const value = this.controls.get(path)
       if (value !== undefined) values[key] = typeof value === 'number' ? Number(value.toFixed(4)) : value
     }

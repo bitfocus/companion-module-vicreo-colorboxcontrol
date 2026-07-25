@@ -1,26 +1,45 @@
-import { combineRgb, type CompanionPresetDefinitions, type CompanionPresetSection } from '@companion-module/base'
-import type { ModuleSchema } from './main.js'
-import type ModuleInstance from './main.js'
-import { GRADE_COMPONENTS, GRADE_WHEELS, SOURCES, pathVariable } from './api.js'
+import {
+  combineRgb,
+  type CompanionPresetDefinitions,
+  type CompanionPresetSection,
+} from "@companion-module/base";
+import type { ModuleSchema } from "./main.js";
+import type ModuleInstance from "./main.js";
+import {
+  GRADE_COMPONENTS,
+  GRADE_WHEELS,
+  SOURCES,
+  pathVariable,
+} from "./api.js";
 
-const RGB_LABELS: Record<string, string> = { r: 'Red', g: 'Green', b: 'Blue' }
+const RGB_LABELS: Record<string, string> = { r: "Red", g: "Green", b: "Blue" };
 
 // The standalone (non wheel, non channel) numeric controls, in doc order.
 const SCALAR_KNOBS = [
-  { path: 'temp', label: 'Temp', delta: 10, bgcolor: combineRgb(130, 95, 20) },
-  { path: 'tint', label: 'Tint', delta: 0.01, bgcolor: combineRgb(95, 60, 120) },
-  { path: 'saturation', label: 'Sat', delta: 0.01, bgcolor: combineRgb(25, 105, 110) },
-]
+  { path: "temp", label: "Temp", delta: 10, bgcolor: combineRgb(130, 95, 20) },
+  {
+    path: "tint",
+    label: "Tint",
+    delta: 0.01,
+    bgcolor: combineRgb(95, 60, 120),
+  },
+  {
+    path: "saturation",
+    label: "Sat",
+    delta: 0.01,
+    bgcolor: combineRgb(25, 105, 110),
+  },
+];
 
 export function UpdatePresets(self: ModuleInstance): void {
-  const presets: CompanionPresetDefinitions<ModuleSchema> = {}
+  const presets: CompanionPresetDefinitions<ModuleSchema> = {};
 
   presets.connection = {
-    type: 'simple',
-    name: 'Connection',
+    type: "simple",
+    name: "Connection",
     style: {
-      text: 'ColorBox\\nConn',
-      size: '14',
+      text: "ColorBox\\nConn",
+      size: "14",
       color: combineRgb(255, 255, 255),
       bgcolor: combineRgb(50, 50, 50),
       show_topbar: false,
@@ -28,21 +47,21 @@ export function UpdatePresets(self: ModuleInstance): void {
     steps: [{ down: [], up: [] }],
     feedbacks: [
       {
-        feedbackId: 'connected',
+        feedbackId: "connected",
         options: {},
         style: {
           bgcolor: combineRgb(0, 120, 0),
         },
       },
     ],
-  }
+  };
 
   presets.bypass_on = {
-    type: 'simple',
-    name: 'Bypass On',
+    type: "simple",
+    name: "Bypass On",
     style: {
-      text: 'Bypass ON',
-      size: '14',
+      text: "Bypass ON",
+      size: "14",
       color: combineRgb(255, 255, 255),
       bgcolor: combineRgb(130, 20, 20),
       show_topbar: false,
@@ -51,9 +70,9 @@ export function UpdatePresets(self: ModuleInstance): void {
       {
         down: [
           {
-            actionId: 'set_bypass',
+            actionId: "set_bypass",
             options: {
-              box: '',
+              box: "",
               value: true,
             },
           },
@@ -62,14 +81,14 @@ export function UpdatePresets(self: ModuleInstance): void {
       },
     ],
     feedbacks: [],
-  }
+  };
 
   presets.bypass_off = {
-    type: 'simple',
-    name: 'Bypass Off',
+    type: "simple",
+    name: "Bypass Off",
     style: {
-      text: 'Bypass OFF',
-      size: '14',
+      text: "Bypass OFF",
+      size: "14",
       color: combineRgb(255, 255, 255),
       bgcolor: combineRgb(20, 80, 20),
       show_topbar: false,
@@ -78,9 +97,9 @@ export function UpdatePresets(self: ModuleInstance): void {
       {
         down: [
           {
-            actionId: 'set_bypass',
+            actionId: "set_bypass",
             options: {
-              box: '',
+              box: "",
               value: false,
             },
           },
@@ -89,15 +108,15 @@ export function UpdatePresets(self: ModuleInstance): void {
       },
     ],
     feedbacks: [],
-  }
+  };
 
   for (const knob of SCALAR_KNOBS) {
     presets[`${knob.path}_knob`] = {
-      type: 'simple',
+      type: "simple",
       name: `${knob.label} Knob (+/-${knob.delta}, press to reset)`,
       style: {
         text: `${knob.label}\\n${pathVariable(knob.path)}`,
-        size: '14',
+        size: "14",
         color: combineRgb(255, 255, 255),
         bgcolor: knob.bgcolor,
         show_topbar: false,
@@ -106,9 +125,9 @@ export function UpdatePresets(self: ModuleInstance): void {
         {
           down: [
             {
-              actionId: 'reset_path',
+              actionId: "reset_path",
               options: {
-                box: '',
+                box: "",
                 path: knob.path,
               },
             },
@@ -116,9 +135,9 @@ export function UpdatePresets(self: ModuleInstance): void {
           up: [],
           rotate_left: [
             {
-              actionId: 'adjust_path_delta',
+              actionId: "adjust_path_delta",
               options: {
-                box: '',
+                box: "",
                 path: knob.path,
                 delta: -knob.delta,
                 clamp: true,
@@ -127,9 +146,9 @@ export function UpdatePresets(self: ModuleInstance): void {
           ],
           rotate_right: [
             {
-              actionId: 'adjust_path_delta',
+              actionId: "adjust_path_delta",
               options: {
-                box: '',
+                box: "",
                 path: knob.path,
                 delta: knob.delta,
                 clamp: true,
@@ -139,16 +158,16 @@ export function UpdatePresets(self: ModuleInstance): void {
         },
       ],
       feedbacks: [],
-    }
+    };
   }
 
-  for (const channel of ['r', 'g', 'b']) {
+  for (const channel of ["r", "g", "b"]) {
     presets[`rgb_${channel}_knob`] = {
-      type: 'simple',
+      type: "simple",
       name: `RGB ${channel.toUpperCase()} Knob (+/-0.01, press to reset)`,
       style: {
         text: `${RGB_LABELS[channel]}\\n${pathVariable(`rgb/${channel}`)}`,
-        size: '14',
+        size: "14",
         color: combineRgb(255, 255, 255),
         bgcolor: combineRgb(75, 75, 75),
         show_topbar: false,
@@ -157,9 +176,9 @@ export function UpdatePresets(self: ModuleInstance): void {
         {
           down: [
             {
-              actionId: 'reset_path',
+              actionId: "reset_path",
               options: {
-                box: '',
+                box: "",
                 path: `rgb/${channel}`,
               },
             },
@@ -167,9 +186,9 @@ export function UpdatePresets(self: ModuleInstance): void {
           up: [],
           rotate_left: [
             {
-              actionId: 'adjust_path_delta',
+              actionId: "adjust_path_delta",
               options: {
-                box: '',
+                box: "",
                 path: `rgb/${channel}`,
                 delta: -0.01,
                 clamp: true,
@@ -178,9 +197,9 @@ export function UpdatePresets(self: ModuleInstance): void {
           ],
           rotate_right: [
             {
-              actionId: 'adjust_path_delta',
+              actionId: "adjust_path_delta",
               options: {
-                box: '',
+                box: "",
                 path: `rgb/${channel}`,
                 delta: 0.01,
                 clamp: true,
@@ -190,20 +209,20 @@ export function UpdatePresets(self: ModuleInstance): void {
         },
       ],
       feedbacks: [],
-    }
+    };
   }
 
   for (const wheel of GRADE_WHEELS) {
     for (const component of GRADE_COMPONENTS) {
-      const id = `grade_${wheel}_${component}_knob`
-      const label = component.toUpperCase()
-      const path = `grade/${wheel}/${component}`
+      const id = `grade_${wheel}_${component}_knob`;
+      const label = component.toUpperCase();
+      const path = `grade/${wheel}/${component}`;
       presets[id] = {
-        type: 'simple',
+        type: "simple",
         name: `${wheel} ${label} Knob (+/-0.01, press to reset)`,
         style: {
           text: `${wheel}\\n${label}\\n${pathVariable(path)}`,
-          size: '14',
+          size: "14",
           color: combineRgb(255, 255, 255),
           bgcolor: combineRgb(80, 55, 20),
           show_topbar: false,
@@ -212,9 +231,9 @@ export function UpdatePresets(self: ModuleInstance): void {
           {
             down: [
               {
-                actionId: 'reset_path',
+                actionId: "reset_path",
                 options: {
-                  box: '',
+                  box: "",
                   path,
                 },
               },
@@ -222,9 +241,9 @@ export function UpdatePresets(self: ModuleInstance): void {
             up: [],
             rotate_left: [
               {
-                actionId: 'adjust_path_delta',
+                actionId: "adjust_path_delta",
                 options: {
-                  box: '',
+                  box: "",
                   path: `grade/${wheel}/${component}`,
                   delta: -0.01,
                   clamp: true,
@@ -233,9 +252,9 @@ export function UpdatePresets(self: ModuleInstance): void {
             ],
             rotate_right: [
               {
-                actionId: 'adjust_path_delta',
+                actionId: "adjust_path_delta",
                 options: {
-                  box: '',
+                  box: "",
                   path: `grade/${wheel}/${component}`,
                   delta: 0.01,
                   clamp: true,
@@ -245,16 +264,16 @@ export function UpdatePresets(self: ModuleInstance): void {
           },
         ],
         feedbacks: [],
-      }
+      };
     }
   }
 
   presets.reset_all = {
-    type: 'simple',
-    name: 'Reset whole grade',
+    type: "simple",
+    name: "Reset whole grade",
     style: {
-      text: 'Reset\\nGrade',
-      size: '14',
+      text: "Reset\\nGrade",
+      size: "14",
       color: combineRgb(255, 255, 255),
       bgcolor: combineRgb(110, 30, 60),
       show_topbar: false,
@@ -263,9 +282,9 @@ export function UpdatePresets(self: ModuleInstance): void {
       {
         down: [
           {
-            actionId: 'reset_all',
+            actionId: "reset_all",
             options: {
-              box: '',
+              box: "",
             },
           },
         ],
@@ -273,14 +292,14 @@ export function UpdatePresets(self: ModuleInstance): void {
       },
     ],
     feedbacks: [],
-  }
+  };
 
   presets.reset_rgb = {
-    type: 'simple',
-    name: 'Reset RGB bias',
+    type: "simple",
+    name: "Reset RGB bias",
     style: {
-      text: 'Reset\\nRGB',
-      size: '14',
+      text: "Reset\\nRGB",
+      size: "14",
       color: combineRgb(255, 255, 255),
       bgcolor: combineRgb(90, 40, 60),
       show_topbar: false,
@@ -289,9 +308,9 @@ export function UpdatePresets(self: ModuleInstance): void {
       {
         down: [
           {
-            actionId: 'reset_rgb',
+            actionId: "reset_rgb",
             options: {
-              box: '',
+              box: "",
             },
           },
         ],
@@ -299,15 +318,15 @@ export function UpdatePresets(self: ModuleInstance): void {
       },
     ],
     feedbacks: [],
-  }
+  };
 
   for (const knob of SCALAR_KNOBS) {
     presets[`reset_${knob.path}`] = {
-      type: 'simple',
+      type: "simple",
       name: `Reset ${knob.label.toLowerCase()}`,
       style: {
         text: `Reset\\n${knob.label}\\n${pathVariable(knob.path)}`,
-        size: '14',
+        size: "14",
         color: combineRgb(255, 255, 255),
         bgcolor: combineRgb(90, 40, 60),
         show_topbar: false,
@@ -316,9 +335,9 @@ export function UpdatePresets(self: ModuleInstance): void {
         {
           down: [
             {
-              actionId: 'reset_path',
+              actionId: "reset_path",
               options: {
-                box: '',
+                box: "",
                 path: knob.path,
               },
             },
@@ -327,16 +346,16 @@ export function UpdatePresets(self: ModuleInstance): void {
         },
       ],
       feedbacks: [],
-    }
+    };
   }
 
-  for (const channel of ['r', 'g', 'b']) {
+  for (const channel of ["r", "g", "b"]) {
     presets[`reset_rgb_${channel}`] = {
-      type: 'simple',
+      type: "simple",
       name: `Reset RGB ${channel.toUpperCase()}`,
       style: {
         text: `Reset\\n${RGB_LABELS[channel]}\\n${pathVariable(`rgb/${channel}`)}`,
-        size: '14',
+        size: "14",
         color: combineRgb(255, 255, 255),
         bgcolor: combineRgb(90, 40, 60),
         show_topbar: false,
@@ -345,9 +364,9 @@ export function UpdatePresets(self: ModuleInstance): void {
         {
           down: [
             {
-              actionId: 'reset_path',
+              actionId: "reset_path",
               options: {
-                box: '',
+                box: "",
                 path: `rgb/${channel}`,
               },
             },
@@ -356,16 +375,16 @@ export function UpdatePresets(self: ModuleInstance): void {
         },
       ],
       feedbacks: [],
-    }
+    };
   }
 
   for (const wheel of GRADE_WHEELS) {
     presets[`reset_grade_${wheel}`] = {
-      type: 'simple',
+      type: "simple",
       name: `Reset ${wheel} wheel`,
       style: {
         text: `Reset\\n${wheel}`,
-        size: '14',
+        size: "14",
         color: combineRgb(255, 255, 255),
         bgcolor: combineRgb(90, 40, 60),
         show_topbar: false,
@@ -374,9 +393,9 @@ export function UpdatePresets(self: ModuleInstance): void {
         {
           down: [
             {
-              actionId: 'reset_grade_wheel',
+              actionId: "reset_grade_wheel",
               options: {
-                box: '',
+                box: "",
                 wheel,
               },
             },
@@ -385,16 +404,16 @@ export function UpdatePresets(self: ModuleInstance): void {
         },
       ],
       feedbacks: [],
-    }
+    };
 
     for (const component of GRADE_COMPONENTS) {
-      const path = `grade/${wheel}/${component}`
+      const path = `grade/${wheel}/${component}`;
       presets[`reset_grade_${wheel}_${component}`] = {
-        type: 'simple',
+        type: "simple",
         name: `Reset ${wheel} ${component.toUpperCase()}`,
         style: {
           text: `Reset\\n${wheel} ${component.toUpperCase()}\\n${pathVariable(path)}`,
-          size: '14',
+          size: "14",
           color: combineRgb(255, 255, 255),
           bgcolor: combineRgb(70, 35, 50),
           show_topbar: false,
@@ -403,9 +422,9 @@ export function UpdatePresets(self: ModuleInstance): void {
           {
             down: [
               {
-                actionId: 'reset_path',
+                actionId: "reset_path",
                 options: {
-                  box: '',
+                  box: "",
                   path,
                 },
               },
@@ -414,17 +433,17 @@ export function UpdatePresets(self: ModuleInstance): void {
           },
         ],
         feedbacks: [],
-      }
+      };
     }
   }
 
   for (const source of SOURCES) {
     presets[`source_${source}`] = {
-      type: 'simple',
+      type: "simple",
       name: `Set source ${source}`,
       style: {
         text: `Source\\n${source}`,
-        size: '14',
+        size: "14",
         color: combineRgb(255, 255, 255),
         bgcolor: combineRgb(45, 85, 135),
         show_topbar: false,
@@ -433,9 +452,9 @@ export function UpdatePresets(self: ModuleInstance): void {
         {
           down: [
             {
-              actionId: 'set_source',
+              actionId: "set_source",
               options: {
-                box: '',
+                box: "",
                 source,
               },
             },
@@ -444,17 +463,17 @@ export function UpdatePresets(self: ModuleInstance): void {
         },
       ],
       feedbacks: [],
-    }
+    };
   }
 
   for (const output of self.getKnownOutputs()) {
-    const safeOutputId = output.replaceAll(/[^a-zA-Z0-9_-]/g, '_')
+    const safeOutputId = output.replaceAll(/[^a-zA-Z0-9_-]/g, "_");
     presets[`output_${safeOutputId}`] = {
-      type: 'simple',
+      type: "simple",
       name: `Set output ${output}`,
       style: {
         text: `Output\\n${output}`,
-        size: '14',
+        size: "14",
         color: combineRgb(255, 255, 255),
         bgcolor: combineRgb(100, 55, 120),
         show_topbar: false,
@@ -463,9 +482,9 @@ export function UpdatePresets(self: ModuleInstance): void {
         {
           down: [
             {
-              actionId: 'set_output',
+              actionId: "set_output",
               options: {
-                box: '',
+                box: "",
                 output,
               },
             },
@@ -474,17 +493,17 @@ export function UpdatePresets(self: ModuleInstance): void {
         },
       ],
       feedbacks: [],
-    }
+    };
   }
 
   for (const box of self.getBoxes()) {
-    const safeBoxId = box.id.replaceAll(/[^a-zA-Z0-9_-]/g, '_')
+    const safeBoxId = box.id.replaceAll(/[^a-zA-Z0-9_-]/g, "_");
     presets[`select_box_${safeBoxId}`] = {
-      type: 'simple',
+      type: "simple",
       name: `Select box ${box.name || box.id}`,
       style: {
         text: `Box\\n${box.name || box.id}`,
-        size: '14',
+        size: "14",
         color: combineRgb(255, 255, 255),
         bgcolor: combineRgb(20, 70, 190),
         show_topbar: false,
@@ -493,7 +512,7 @@ export function UpdatePresets(self: ModuleInstance): void {
         {
           down: [
             {
-              actionId: 'select_box',
+              actionId: "select_box",
               options: {
                 box: box.id,
               },
@@ -504,7 +523,7 @@ export function UpdatePresets(self: ModuleInstance): void {
       ],
       feedbacks: [
         {
-          feedbackId: 'selected_box',
+          feedbackId: "selected_box",
           options: {
             box: box.id,
           },
@@ -513,46 +532,52 @@ export function UpdatePresets(self: ModuleInstance): void {
           },
         },
       ],
-    }
+    };
   }
 
   const structure: CompanionPresetSection<ModuleSchema>[] = [
     {
-      id: 'status',
-      name: 'Status',
-      definitions: ['connection'],
+      id: "status",
+      name: "Status",
+      definitions: ["connection"],
     },
     {
-      id: 'bypass',
-      name: 'Bypass',
-      definitions: ['bypass_on', 'bypass_off'],
+      id: "bypass",
+      name: "Bypass",
+      definitions: ["bypass_on", "bypass_off"],
     },
     {
-      id: 'knobs',
-      name: 'Knob Presets',
-      definitions: Object.keys(presets).filter((id) => id.endsWith('_knob')),
+      id: "knobs",
+      name: "Knob Presets",
+      definitions: Object.keys(presets).filter((id) => id.endsWith("_knob")),
     },
     {
-      id: 'reset',
-      name: 'Reset Presets',
-      definitions: Object.keys(presets).filter((id) => id.startsWith('reset_')),
+      id: "reset",
+      name: "Reset Presets",
+      definitions: Object.keys(presets).filter((id) => id.startsWith("reset_")),
     },
     {
-      id: 'source',
-      name: 'Source Presets',
-      definitions: Object.keys(presets).filter((id) => id.startsWith('source_')),
+      id: "source",
+      name: "Source Presets",
+      definitions: Object.keys(presets).filter((id) =>
+        id.startsWith("source_"),
+      ),
     },
     {
-      id: 'output',
-      name: 'Output Presets',
-      definitions: Object.keys(presets).filter((id) => id.startsWith('output_')),
+      id: "output",
+      name: "Output Presets",
+      definitions: Object.keys(presets).filter((id) =>
+        id.startsWith("output_"),
+      ),
     },
     {
-      id: 'boxes',
-      name: 'Box Select Presets',
-      definitions: Object.keys(presets).filter((id) => id.startsWith('select_box_')),
+      id: "boxes",
+      name: "Box Select Presets",
+      definitions: Object.keys(presets).filter((id) =>
+        id.startsWith("select_box_"),
+      ),
     },
-  ]
+  ];
 
-  self.setPresetDefinitions(structure, presets)
+  self.setPresetDefinitions(structure, presets);
 }

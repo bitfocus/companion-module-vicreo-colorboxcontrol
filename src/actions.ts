@@ -1,130 +1,159 @@
-import type ModuleInstance from './main.js'
-import { GRADE_COMPONENTS, GRADE_WHEELS, NUMERIC_PATHS, RGB_PATHS, SOURCES, clampPathValue, pathStep } from './api.js'
+import type ModuleInstance from "./main.js";
+import {
+  GRADE_COMPONENTS,
+  GRADE_WHEELS,
+  NUMERIC_PATHS,
+  RGB_PATHS,
+  SOURCES,
+  clampPathValue,
+  pathStep,
+} from "./api.js";
 
 type CommonActionOptions = {
-  box: string
-}
+  box: string;
+};
 
 export type ActionsSchema = {
-  refresh_boxes: { options: Record<string, never> }
-  select_box: { options: { box: string } }
-  request_state: { options: CommonActionOptions }
-  set_bypass: { options: CommonActionOptions & { value: boolean } }
-  set_path_number: { options: CommonActionOptions & { path: string; value: number } }
-  set_path_text: { options: CommonActionOptions & { path: string; value: string } }
-  set_source: { options: CommonActionOptions & { source: string } }
-  set_output: { options: CommonActionOptions & { output: string } }
-  adjust_path_delta: { options: CommonActionOptions & { path: string; delta: number; clamp: boolean } }
-  reset_path: { options: CommonActionOptions & { path: string } }
-  reset_paths: { options: CommonActionOptions & { paths: string[] } }
-  reset_rgb: { options: CommonActionOptions }
-  reset_grade_wheel: { options: CommonActionOptions & { wheel: string } }
-  reset_all: { options: CommonActionOptions }
-}
+  refresh_boxes: { options: Record<string, never> };
+  select_box: { options: { box: string } };
+  request_state: { options: CommonActionOptions };
+  set_bypass: { options: CommonActionOptions & { value: boolean } };
+  set_path_number: {
+    options: CommonActionOptions & { path: string; value: number };
+  };
+  set_path_text: {
+    options: CommonActionOptions & { path: string; value: string };
+  };
+  set_source: { options: CommonActionOptions & { source: string } };
+  set_output: { options: CommonActionOptions & { output: string } };
+  adjust_path_delta: {
+    options: CommonActionOptions & {
+      path: string;
+      delta: number;
+      clamp: boolean;
+    };
+  };
+  reset_path: { options: CommonActionOptions & { path: string } };
+  reset_paths: { options: CommonActionOptions & { paths: string[] } };
+  reset_rgb: { options: CommonActionOptions };
+  reset_grade_wheel: { options: CommonActionOptions & { wheel: string } };
+  reset_all: { options: CommonActionOptions };
+};
 
-const numericPathChoices = NUMERIC_PATHS.map((path) => ({ id: path, label: path }))
+const numericPathChoices = NUMERIC_PATHS.map((path) => ({
+  id: path,
+  label: path,
+}));
 
 const boxOption = {
-  id: 'box',
-  type: 'textinput',
-  label: 'Box id (optional)',
-  default: '',
-} as const
+  id: "box",
+  type: "textinput",
+  label: "Box id (optional)",
+  default: "",
+} as const;
 
-function boxDropdownChoices(self: ModuleInstance): { id: string; label: string }[] {
-  return self.getBoxes().map((b) => ({ id: b.id, label: `${b.name || b.id} (${b.id})` }))
+function boxDropdownChoices(
+  self: ModuleInstance,
+): { id: string; label: string }[] {
+  return self
+    .getBoxes()
+    .map((b) => ({ id: b.id, label: `${b.name || b.id} (${b.id})` }));
 }
 
-function outputDropdownChoices(self: ModuleInstance): { id: string; label: string }[] {
-  return self.getKnownOutputs().map((output) => ({ id: output, label: output }))
+function outputDropdownChoices(
+  self: ModuleInstance,
+): { id: string; label: string }[] {
+  return self
+    .getKnownOutputs()
+    .map((output) => ({ id: output, label: output }));
 }
 
 function normalizeBox(optionBox: string): string | undefined {
-  const trimmed = (optionBox || '').trim()
-  return trimmed.length > 0 ? trimmed : undefined
+  const trimmed = (optionBox || "").trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 export function UpdateActions(self: ModuleInstance): void {
   self.setActionDefinitions({
     refresh_boxes: {
-      name: 'Refresh boxes',
+      name: "Refresh boxes",
       options: [],
       callback: async () => {
-        self.sendListBoxes()
+        self.sendListBoxes();
       },
     },
     select_box: {
-      name: 'Select box',
+      name: "Select box",
       options: [
         {
-          id: 'box',
-          type: 'dropdown',
-          label: 'Box',
-          default: self.getSelectedBoxId() || '',
+          id: "box",
+          type: "dropdown",
+          label: "Box",
+          default: self.getSelectedBoxId() || "",
           choices: boxDropdownChoices(self),
           allowCustom: true,
         },
       ],
       callback: async (event) => {
-        const box = normalizeBox(event.options.box)
-        if (box) self.selectBox(box)
+        const box = normalizeBox(event.options.box);
+        if (box) self.selectBox(box);
       },
     },
     request_state: {
-      name: 'Request current state',
+      name: "Request current state",
       options: [
         {
-          id: 'box',
-          type: 'textinput',
-          label: 'Box id (optional)',
-          default: '',
+          id: "box",
+          type: "textinput",
+          label: "Box id (optional)",
+          default: "",
         },
       ],
       callback: async (event) => {
-        self.requestState(normalizeBox(event.options.box))
+        self.requestState(normalizeBox(event.options.box));
       },
     },
     set_bypass: {
-      name: 'Set bypass',
+      name: "Set bypass",
       options: [
         {
-          id: 'box',
-          type: 'textinput',
-          label: 'Box id (optional)',
-          default: '',
+          id: "box",
+          type: "textinput",
+          label: "Box id (optional)",
+          default: "",
         },
         {
-          id: 'value',
-          type: 'checkbox',
-          label: 'Bypass enabled',
+          id: "value",
+          type: "checkbox",
+          label: "Bypass enabled",
           default: true,
         },
       ],
       callback: async (event) => {
-        self.setBypass(event.options.value, normalizeBox(event.options.box))
+        self.setBypass(event.options.value, normalizeBox(event.options.box));
       },
     },
     set_path_number: {
-      name: 'Set numeric control path',
+      name: "Set numeric control path",
       options: [
         {
-          id: 'box',
-          type: 'textinput',
-          label: 'Box id (optional)',
-          default: '',
+          id: "box",
+          type: "textinput",
+          label: "Box id (optional)",
+          default: "",
         },
         {
-          id: 'path',
-          type: 'dropdown',
-          label: 'Path',
-          default: 'temp',
+          id: "path",
+          type: "dropdown",
+          label: "Path",
+          default: "temp",
           choices: numericPathChoices,
           allowCustom: true,
         },
         {
-          id: 'value',
-          type: 'number',
-          label: 'Value',
+          id: "value",
+          type: "number",
+          label: "Value",
           default: 3200,
           min: -100000,
           max: 100000,
@@ -132,208 +161,233 @@ export function UpdateActions(self: ModuleInstance): void {
         },
       ],
       callback: async (event) => {
-        const path = String(event.options.path)
-        const value = Number(event.options.value)
-        const next = clampPathValue(path, value)
-        self.setPath(path, next, normalizeBox(event.options.box))
+        const path = String(event.options.path);
+        const value = Number(event.options.value);
+        const next = clampPathValue(path, value);
+        self.setPath(path, next, normalizeBox(event.options.box));
       },
     },
     set_path_text: {
-      name: 'Set text/enum control path',
+      name: "Set text/enum control path",
       options: [
         {
-          id: 'box',
-          type: 'textinput',
-          label: 'Box id (optional)',
-          default: '',
+          id: "box",
+          type: "textinput",
+          label: "Box id (optional)",
+          default: "",
         },
         {
-          id: 'path',
-          type: 'dropdown',
-          label: 'Path',
-          default: 'output',
+          id: "path",
+          type: "dropdown",
+          label: "Path",
+          default: "output",
           choices: [
-            { id: 'source', label: 'source' },
-            { id: 'output', label: 'output' },
+            { id: "source", label: "source" },
+            { id: "output", label: "output" },
           ],
           allowCustom: true,
         },
         {
-          id: 'value',
-          type: 'textinput',
-          label: 'Value',
-          default: '',
+          id: "value",
+          type: "textinput",
+          label: "Value",
+          default: "",
         },
       ],
       callback: async (event) => {
-        self.setPath(String(event.options.path), String(event.options.value), normalizeBox(event.options.box))
+        self.setPath(
+          String(event.options.path),
+          String(event.options.value),
+          normalizeBox(event.options.box),
+        );
       },
     },
     set_source: {
-      name: 'Set source',
+      name: "Set source",
       options: [
         {
-          id: 'box',
-          type: 'textinput',
-          label: 'Box id (optional)',
-          default: '',
+          id: "box",
+          type: "textinput",
+          label: "Box id (optional)",
+          default: "",
         },
         {
-          id: 'source',
-          type: 'dropdown',
-          label: 'Source',
-          default: 'rec709',
+          id: "source",
+          type: "dropdown",
+          label: "Source",
+          default: "rec709",
           choices: SOURCES.map((s) => ({ id: s, label: s })),
         },
       ],
       callback: async (event) => {
-        self.setPath('source', String(event.options.source), normalizeBox(event.options.box))
+        self.setPath(
+          "source",
+          String(event.options.source),
+          normalizeBox(event.options.box),
+        );
       },
     },
     set_output: {
-      name: 'Set output',
+      name: "Set output",
       options: [
         {
-          id: 'box',
-          type: 'textinput',
-          label: 'Box id (optional)',
-          default: '',
+          id: "box",
+          type: "textinput",
+          label: "Box id (optional)",
+          default: "",
         },
         {
-          id: 'output',
-          type: 'dropdown',
-          label: 'Output',
-          default: self.getKnownOutputs()[0] || '',
+          id: "output",
+          type: "dropdown",
+          label: "Output",
+          default: self.getKnownOutputs()[0] || "",
           choices: outputDropdownChoices(self),
           allowCustom: true,
         },
       ],
       callback: async (event) => {
-        self.setPath('output', String(event.options.output), normalizeBox(event.options.box))
+        self.setPath(
+          "output",
+          String(event.options.output),
+          normalizeBox(event.options.box),
+        );
       },
     },
     adjust_path_delta: {
-      name: 'Adjust path by delta (ideal for knobs)',
-      description: 'Use positive/negative delta actions for Stream Deck+ rotary encoders.',
+      name: "Adjust path by delta (ideal for knobs)",
+      description:
+        "Use positive/negative delta actions for Stream Deck+ rotary encoders.",
       options: [
         {
-          id: 'box',
-          type: 'textinput',
-          label: 'Box id (optional)',
-          default: '',
+          id: "box",
+          type: "textinput",
+          label: "Box id (optional)",
+          default: "",
         },
         {
-          id: 'path',
-          type: 'dropdown',
-          label: 'Path',
-          default: 'temp',
+          id: "path",
+          type: "dropdown",
+          label: "Path",
+          default: "temp",
           choices: numericPathChoices,
           allowCustom: true,
         },
         {
-          id: 'delta',
-          type: 'number',
-          label: 'Delta per trigger (CW positive, CCW negative)',
+          id: "delta",
+          type: "number",
+          label: "Delta per trigger (CW positive, CCW negative)",
           default: 10,
           min: -1000,
           max: 1000,
           step: 0.01,
         },
         {
-          id: 'clamp',
-          type: 'checkbox',
-          label: 'Clamp to known range',
+          id: "clamp",
+          type: "checkbox",
+          label: "Clamp to known range",
           default: true,
         },
       ],
       callback: async (event) => {
-        const path = String(event.options.path)
-        const delta = Number(event.options.delta) || pathStep(path)
-        const current = self.getControlNumber(path)
+        const path = String(event.options.path);
+        const delta = Number(event.options.delta) || pathStep(path);
+        const current = self.getControlNumber(path);
         if (current === undefined) {
           // Either state has not arrived yet, or the server build does not
           // know this path at all - in which case the knob stays dead until
           // the app is updated, so say so rather than failing silently.
-          self.log('warn', `No known value for '${path}' yet - requesting state. Does the app report this path?`)
-          self.requestState(normalizeBox(event.options.box))
-          return
+          self.log(
+            "warn",
+            `No known value for '${path}' yet - requesting state. Does the app report this path?`,
+          );
+          self.requestState(normalizeBox(event.options.box));
+          return;
         }
 
-        const rawNext = current + delta
-        const next = event.options.clamp ? clampPathValue(path, rawNext) : rawNext
-        self.setPath(path, next, normalizeBox(event.options.box))
+        const rawNext = current + delta;
+        const next = event.options.clamp
+          ? clampPathValue(path, rawNext)
+          : rawNext;
+        self.setPath(path, next, normalizeBox(event.options.box));
       },
     },
     reset_path: {
-      name: 'Reset control path to default',
+      name: "Reset control path to default",
       description:
-        'Same as double-clicking the control in the app. Source and output have no default and cannot be reset.',
+        "Same as double-clicking the control in the app. Source and output have no default and cannot be reset.",
       options: [
         boxOption,
         {
-          id: 'path',
-          type: 'dropdown',
-          label: 'Path',
-          default: 'temp',
+          id: "path",
+          type: "dropdown",
+          label: "Path",
+          default: "temp",
           choices: numericPathChoices,
           allowCustom: true,
         },
       ],
       callback: async (event) => {
-        self.resetPath(String(event.options.path), normalizeBox(event.options.box))
+        self.resetPath(
+          String(event.options.path),
+          normalizeBox(event.options.box),
+        );
       },
     },
     reset_paths: {
-      name: 'Reset several control paths',
+      name: "Reset several control paths",
       options: [
         boxOption,
         {
-          id: 'paths',
-          type: 'multidropdown',
-          label: 'Paths',
+          id: "paths",
+          type: "multidropdown",
+          label: "Paths",
           default: [],
           choices: numericPathChoices,
         },
       ],
       callback: async (event) => {
-        const paths = (event.options.paths || []).map((path) => String(path)).filter((path) => path.length > 0)
-        if (paths.length === 0) return
-        self.resetPaths(paths, normalizeBox(event.options.box))
+        const paths = (event.options.paths || [])
+          .map((path) => String(path))
+          .filter((path) => path.length > 0);
+        if (paths.length === 0) return;
+        self.resetPaths(paths, normalizeBox(event.options.box));
       },
     },
     reset_rgb: {
-      name: 'Reset RGB bias (R, G and B)',
+      name: "Reset RGB bias (R, G and B)",
       options: [boxOption],
       callback: async (event) => {
-        self.resetPaths(RGB_PATHS, normalizeBox(event.options.box))
+        self.resetPaths(RGB_PATHS, normalizeBox(event.options.box));
       },
     },
     reset_grade_wheel: {
-      name: 'Reset grade wheel',
-      description: 'Resets r, g, b and master of one wheel.',
+      name: "Reset grade wheel",
+      description: "Resets r, g, b and master of one wheel.",
       options: [
         boxOption,
         {
-          id: 'wheel',
-          type: 'dropdown',
-          label: 'Wheel',
+          id: "wheel",
+          type: "dropdown",
+          label: "Wheel",
           default: GRADE_WHEELS[0],
           choices: GRADE_WHEELS.map((wheel) => ({ id: wheel, label: wheel })),
         },
       ],
       callback: async (event) => {
-        const wheel = String(event.options.wheel)
-        const paths = GRADE_COMPONENTS.map((component) => `grade/${wheel}/${component}`)
-        self.resetPaths(paths, normalizeBox(event.options.box))
+        const wheel = String(event.options.wheel);
+        const paths = GRADE_COMPONENTS.map(
+          (component) => `grade/${wheel}/${component}`,
+        );
+        self.resetPaths(paths, normalizeBox(event.options.box));
       },
     },
     reset_all: {
-      name: 'Reset whole grade',
-      description: 'Resets every resettable control back to neutral.',
+      name: "Reset whole grade",
+      description: "Resets every resettable control back to neutral.",
       options: [boxOption],
       callback: async (event) => {
-        self.resetPaths(undefined, normalizeBox(event.options.box))
+        self.resetPaths(undefined, normalizeBox(event.options.box));
       },
     },
-  })
+  });
 }

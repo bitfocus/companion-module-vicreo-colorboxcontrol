@@ -9,7 +9,15 @@ import {
   GRADE_COMPONENTS,
   GRADE_WHEELS,
   SOURCES,
+  TERANEX_COLOR,
+  TERANEX_DRIVER,
+  TERANEX_PATTERNS,
+  TERANEX_PRESET_COUNT,
+  TERANEX_PROCAMP,
+  TERANEX_RESET_GROUPS,
+  TERANEX_TONES,
   pathVariable,
+  teranexPresetNamePath,
 } from "./api.js";
 
 const RGB_LABELS: Record<string, string> = { r: "Red", g: "Green", b: "Blue" };
@@ -535,6 +543,10 @@ export function UpdatePresets(self: ModuleInstance): void {
     };
   }
 
+  // Teranex presets only appear once the app reports a Teranex box.
+  const hasTeranex = self.getBoxes().some((b) => b.driver === TERANEX_DRIVER);
+  if (hasTeranex) addTeranexPresets(presets);
+
   const structure: CompanionPresetSection<ModuleSchema>[] = [
     {
       id: "status",
@@ -579,5 +591,236 @@ export function UpdatePresets(self: ModuleInstance): void {
     },
   ];
 
+  if (hasTeranex) {
+    const withPrefix = (prefix: string): string[] =>
+      Object.keys(presets).filter((id) => id.startsWith(prefix));
+    structure.push(
+      {
+        id: "teranex_knobs",
+        name: "Teranex Knobs",
+        definitions: withPrefix("teranex_knob_"),
+      },
+      {
+        id: "teranex_test",
+        name: "Teranex Test Pattern",
+        definitions: [
+          ...withPrefix("teranex_pattern_"),
+          ...withPrefix("teranex_tone_"),
+          "teranex_motion",
+        ],
+      },
+      {
+        id: "teranex_presets",
+        name: "Teranex Presets",
+        definitions: withPrefix("teranex_recall_"),
+      },
+      {
+        id: "teranex_reset",
+        name: "Teranex Reset",
+        definitions: withPrefix("teranex_reset_"),
+      },
+    );
+  }
+
   self.setPresetDefinitions(structure, presets);
+}
+
+const WHITE = combineRgb(255, 255, 255);
+
+function addTeranexPresets(
+  presets: CompanionPresetDefinitions<ModuleSchema>,
+): void {
+  // Proc amp + RGB knobs: turn to adjust, press to reset. Lit while away from default.
+  const knobs = [
+    ...TERANEX_PROCAMP.map((n) => ({ ...n, bgcolor: combineRgb(35, 70, 90) })),
+    ...TERANEX_COLOR.map((n) => ({ ...n, bgcolor: combineRgb(75, 75, 75) })),
+  ];
+  for (const knob of knobs) {
+    const id = knob.path.replaceAll("/", "_");
+    presets[`teranex_knob_${id}`] = {
+      type: "simple",
+      name: `Teranex ${knob.label} Knob (+/-${knob.step}, press to reset)`,
+      style: {
+        text: `${knob.label}\\n${pathVariable(knob.path)}`,
+        size: "14",
+        color: WHITE,
+        bgcolor: knob.bgcolor,
+        show_topbar: false,
+      },
+      steps: [
+        {
+          down: [
+            {
+              actionId: "teranex_reset",
+              options: { box: "", path: knob.path },
+            },
+          ],
+          up: [],
+          rotate_left: [
+            {
+              actionId: "teranex_adjust",
+              options: { box: "", path: knob.path, delta: -knob.step },
+            },
+          ],
+          rotate_right: [
+            {
+              actionId: "teranex_adjust",
+              options: { box: "", path: knob.path, delta: knob.step },
+            },
+          ],
+        },
+      ],
+      feedbacks: [
+        {
+          feedbackId: "teranex_not_default",
+          options: { path: knob.path },
+          style: { bgcolor: combineRgb(160, 100, 0) },
+        },
+      ],
+    };
+  }
+
+  for (const [pattern, label] of Object.entries(TERANEX_PATTERNS)) {
+    presets[`teranex_pattern_${pattern}`] = {
+      type: "simple",
+      name: `Teranex test pattern: ${label}`,
+      style: {
+        text: pattern === "None" ? "Pattern\\nOFF" : `Pattern\\n${label}`,
+        size: "14",
+        color: WHITE,
+        bgcolor: combineRgb(70, 50, 20),
+        show_topbar: false,
+      },
+      steps: [
+        {
+          down: [
+            { actionId: "teranex_test_pattern", options: { box: "", pattern } },
+          ],
+          up: [],
+        },
+      ],
+      feedbacks: [
+        {
+          feedbackId: "teranex_test_pattern",
+          options: { pattern },
+          style: {
+            bgcolor: combineRgb(200, 120, 0),
+            color: combineRgb(0, 0, 0),
+          },
+        },
+      ],
+    };
+  }
+
+  for (const [tone, label] of Object.entries(TERANEX_TONES)) {
+    presets[`teranex_tone_${tone}`] = {
+      type: "simple",
+      name: `Teranex test tone: ${label}`,
+      style: {
+        text: tone === "None" ? "Tone\\nOFF" : `Tone\\n${label}`,
+        size: "14",
+        color: WHITE,
+        bgcolor: combineRgb(50, 60, 30),
+        show_topbar: false,
+      },
+      steps: [
+        {
+          down: [{ actionId: "teranex_test_tone", options: { box: "", tone } }],
+          up: [],
+        },
+      ],
+      feedbacks: [
+        {
+          feedbackId: "teranex_test_tone",
+          options: { tone },
+          style: {
+            bgcolor: combineRgb(200, 120, 0),
+            color: combineRgb(0, 0, 0),
+          },
+        },
+      ],
+    };
+  }
+
+  presets.teranex_motion = {
+    type: "simple",
+    name: "Teranex test pattern motion (toggle)",
+    style: {
+      text: "Pattern\\nMotion",
+      size: "14",
+      color: WHITE,
+      bgcolor: combineRgb(40, 50, 70),
+      show_topbar: false,
+    },
+    steps: [
+      {
+        down: [
+          { actionId: "teranex_motion", options: { box: "", mode: "toggle" } },
+        ],
+        up: [],
+      },
+    ],
+    feedbacks: [
+      {
+        feedbackId: "teranex_motion",
+        options: {},
+        style: { bgcolor: combineRgb(0, 110, 160) },
+      },
+    ],
+  };
+
+  // Recall only: a one-press Save would overwrite a stored setup by accident.
+  // The "Teranex: save current setup to preset" action is there for a
+  // deliberately built button.
+  for (let preset = 1; preset <= TERANEX_PRESET_COUNT; preset++) {
+    presets[`teranex_recall_${preset}`] = {
+      type: "simple",
+      name: `Teranex recall preset ${preset}`,
+      style: {
+        text: `${preset}\\n${pathVariable(teranexPresetNamePath(preset))}`,
+        size: "14",
+        color: WHITE,
+        bgcolor: combineRgb(30, 80, 60),
+        show_topbar: false,
+      },
+      steps: [
+        {
+          down: [
+            {
+              actionId: "teranex_preset_recall",
+              options: { box: "", preset: String(preset) },
+            },
+          ],
+          up: [],
+        },
+      ],
+      feedbacks: [],
+    };
+  }
+
+  for (const [group, { label }] of [
+    ...Object.entries(TERANEX_RESET_GROUPS),
+    ["all", { label: "Everything" }] as const,
+  ]) {
+    presets[`teranex_reset_${group}`] = {
+      type: "simple",
+      name: `Teranex reset ${label.toLowerCase()}`,
+      style: {
+        text: `Reset\\n${label}`,
+        size: "14",
+        color: WHITE,
+        bgcolor: combineRgb(90, 40, 60),
+        show_topbar: false,
+      },
+      steps: [
+        {
+          down: [
+            { actionId: "teranex_reset_group", options: { box: "", group } },
+          ],
+          up: [],
+        },
+      ],
+      feedbacks: [],
+    };
+  }
 }

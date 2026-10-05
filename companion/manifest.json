@@ -24,5 +24,14 @@
   "legacyIds": [],
   "manufacturer": "VICREO",
   "products": ["ColorBox Control API"],
-  "keywords": ["fsi", "boxio", "color", "grading", "websocket"]
+  "keywords": [
+    "fsi",
+    "boxio",
+    "aja",
+    "blackmagic",
+    "teranex",
+    "color",
+    "grading",
+    "websocket"
+  ]
 }

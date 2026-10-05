@@ -15,6 +15,9 @@ import { UpdateFeedbacks, type FeedbacksSchema } from "./feedbacks.js";
 import { UpdatePresets } from "./presets.js";
 import {
   COMMON_PATHS,
+  TERANEX_DRIVER,
+  TERANEX_PATHS,
+  TEXT_PATHS,
   clampPathValue,
   pathVariableId,
   toNumberOrNull,
@@ -126,6 +129,15 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
     return this.selectedBoxName;
   }
 
+  /** Driver of the selected box ("aja-colorbox", "fsi-boxio", "bmd-teranex"), or "" if unknown. */
+  getSelectedDriver(): string {
+    return this.boxes.find((b) => b.id === this.selectedBoxId)?.driver ?? "";
+  }
+
+  isTeranexSelected(): boolean {
+    return this.getSelectedDriver() === TERANEX_DRIVER;
+  }
+
   getBypass(): boolean {
     return this.bypass;
   }
@@ -148,7 +160,27 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
   }
 
   selectBox(boxId: string): void {
+    this.setSelectedBox(boxId);
     this.sendMessage({ op: "select", box: boxId });
+  }
+
+  /**
+   * The selection only ever changes here - on an explicit select - never from
+   * an incoming state message: the app broadcasts state for EVERY box that
+   * changes, and a Teranex pushes one on each front-panel move, so following
+   * those would make the selection jump to whichever box changed last.
+   */
+  private setSelectedBox(boxId: string): void {
+    if (boxId === this.selectedBoxId) return;
+    this.selectedBoxId = boxId;
+    const box = this.boxes.find((b) => b.id === boxId);
+    this.selectedBoxName = box?.name || boxId;
+    // Different box, maybe a different driver with different paths: drop the
+    // old box's values so variables and feedbacks don't show them.
+    this.controls.clear();
+    this.bypass = false;
+    this.checkAllFeedbacks();
+    this.pushVariables();
   }
 
   requestState(boxId?: string): void {
@@ -323,17 +355,21 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
             b !== null &&
             typeof (b as BoxInfo).id === "string",
         );
-        const changed = this.addOutputsFromPaths(msg.paths);
-        if (!this.selectedBoxId && this.boxes.length > 0) {
-          // Sync the server's session-level selection too, not just our local
-          // bookkeeping - otherwise 'set'/'adjust_path_delta' calls that omit
-          // box (e.g. the rotary knob presets) hit "No box selected" on the
-          // server and silently do nothing.
+        this.addOutputsFromPaths(msg.paths);
+        // Sync the server's session-level selection too, not just our local
+        // bookkeeping - otherwise 'set'/'adjust_path_delta' calls that omit
+        // box (e.g. the rotary knob presets) hit "No box selected" on the
+        // server and silently do nothing. A reconnect is a fresh server
+        // session, so a selection we already had must be re-sent as well.
+        if (this.boxes.some((b) => b.id === this.selectedBoxId)) {
+          this.sendMessage({ op: "select", box: this.selectedBoxId });
+        } else if (this.boxes.length > 0) {
           this.selectBox(this.boxes[0].id);
         }
         this.checkAllFeedbacks();
         this.updateActions();
-        if (changed) this.updatePresets();
+        // The box list (and so which drivers are present) feeds the presets.
+        this.updatePresets();
         this.pushVariables();
         return;
       }
@@ -375,11 +411,15 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
   private applyState(state: StateMessage): void {
     let changedDynamicOutputs = false;
 
-    if (typeof state.box === "string") {
-      this.selectedBoxId = state.box;
-      const box = this.boxes.find((b) => b.id === state.box);
-      this.selectedBoxName = state.name || box?.name || state.box;
-    }
+    if (typeof state.box !== "string") return;
+    // Only the selected box's state is mirrored (see setSelectedBox). Until
+    // something is selected, adopt the first box the server reports on.
+    if (!this.selectedBoxId) this.setSelectedBox(state.box);
+    if (state.box !== this.selectedBoxId) return;
+    this.selectedBoxName =
+      state.name ||
+      this.boxes.find((b) => b.id === state.box)?.name ||
+      state.box;
 
     if (typeof state.bypass === "boolean") {
       this.bypass = state.bypass;
@@ -387,6 +427,17 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
     if (state.controls && typeof state.controls === "object") {
       for (const [path, rawValue] of Object.entries(state.controls)) {
+        if (
+          TEXT_PATHS.has(path) &&
+          (typeof rawValue === "string" || typeof rawValue === "number")
+        ) {
+          const text = String(rawValue);
+          this.controls.set(path, text);
+          if (path === "output" && this.addKnownOutput(text)) {
+            changedDynamicOutputs = true;
+          }
+          continue;
+        }
         const numeric = toNumberOrNull(rawValue);
         if (numeric !== null) {
           this.controls.set(path, numeric);
@@ -469,10 +520,11 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
       connection: this.isReady ? "connected" : "disconnected",
       selected_box_id: this.selectedBoxId,
       selected_box_name: this.selectedBoxName,
+      selected_box_driver: this.getSelectedDriver(),
       bypass: this.bypass ? "on" : "off",
     };
 
-    for (const path of COMMON_PATHS) {
+    for (const path of [...COMMON_PATHS, ...TERANEX_PATHS]) {
       const key = pathVariableId(path);
       const value = this.controls.get(path);
       if (value !== undefined)

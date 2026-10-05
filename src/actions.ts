@@ -5,8 +5,17 @@ import {
   NUMERIC_PATHS,
   RGB_PATHS,
   SOURCES,
+  TERANEX_DRIVER,
+  TERANEX_NO_SIGNAL,
+  TERANEX_NUMBERS,
+  TERANEX_PATTERNS,
+  TERANEX_PRESET_COUNT,
+  TERANEX_RESET_GROUPS,
+  TERANEX_TONES,
   clampPathValue,
   pathStep,
+  teranexNumber,
+  teranexPresetNamePath,
 } from "./api.js";
 
 type CommonActionOptions = {
@@ -38,6 +47,23 @@ export type ActionsSchema = {
   reset_rgb: { options: CommonActionOptions };
   reset_grade_wheel: { options: CommonActionOptions & { wheel: string } };
   reset_all: { options: CommonActionOptions };
+  teranex_set_number: {
+    options: CommonActionOptions & { path: string; value: number };
+  };
+  teranex_adjust: {
+    options: CommonActionOptions & { path: string; delta: number };
+  };
+  teranex_reset: { options: CommonActionOptions & { path: string } };
+  teranex_reset_group: { options: CommonActionOptions & { group: string } };
+  teranex_test_pattern: { options: CommonActionOptions & { pattern: string } };
+  teranex_test_tone: { options: CommonActionOptions & { tone: string } };
+  teranex_no_signal: { options: CommonActionOptions & { value: string } };
+  teranex_motion: { options: CommonActionOptions & { mode: string } };
+  teranex_preset_recall: { options: CommonActionOptions & { preset: string } };
+  teranex_preset_save: { options: CommonActionOptions & { preset: string } };
+  teranex_preset_rename: {
+    options: CommonActionOptions & { preset: string; name: string };
+  };
 };
 
 const numericPathChoices = NUMERIC_PATHS.map((path) => ({
@@ -71,6 +97,46 @@ function outputDropdownChoices(
 function normalizeBox(optionBox: string): string | undefined {
   const trimmed = (optionBox || "").trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+const teranexNumberChoices = TERANEX_NUMBERS.map((n) => ({
+  id: n.path,
+  label: `${n.label} (${n.path}, ${n.min}..${n.max})`,
+}));
+
+const teranexPresetChoices = Array.from(
+  { length: TERANEX_PRESET_COUNT },
+  (_, i) => ({ id: String(i + 1), label: `Preset ${i + 1}` }),
+);
+
+function choicesOf(
+  map: Record<string, string>,
+): { id: string; label: string }[] {
+  return Object.entries(map).map(([id, label]) => ({ id, label }));
+}
+
+/**
+ * Resolves the box a Teranex action targets, or undefined (and a log line)
+ * when it would land on a LUT box. Teranex paths mean nothing to a ColorBox or
+ * BoxIO - the app would answer "Unknown control path" - so say what is wrong
+ * instead. An explicit box id is trusted, as the app validates it anyway.
+ */
+function teranexTarget(
+  self: ModuleInstance,
+  optionBox: string,
+): { box: string | undefined } | undefined {
+  const box = normalizeBox(optionBox);
+  const driver = box
+    ? self.getBoxes().find((b) => b.id === box)?.driver
+    : self.getSelectedDriver();
+  if (driver && driver !== TERANEX_DRIVER) {
+    self.log(
+      "warn",
+      `Teranex action ignored: ${box ? `box '${box}'` : "the selected box"} uses the ${driver} driver, not a Teranex.`,
+    );
+    return undefined;
+  }
+  return { box };
 }
 
 export function UpdateActions(self: ModuleInstance): void {
@@ -387,6 +453,295 @@ export function UpdateActions(self: ModuleInstance): void {
       options: [boxOption],
       callback: async (event) => {
         self.resetPaths(undefined, normalizeBox(event.options.box));
+      },
+    },
+
+    // --- Blackmagic Teranex ------------------------------------------------
+    // Values are the Teranex's own units and go straight to the device.
+    teranex_set_number: {
+      name: "Teranex: set value",
+      options: [
+        boxOption,
+        {
+          id: "path",
+          type: "dropdown",
+          label: "Control",
+          default: "procamp/gain",
+          choices: teranexNumberChoices,
+        },
+        {
+          id: "value",
+          type: "number",
+          label: "Value (device units, clamped to the control's range)",
+          default: 0,
+          min: -1019,
+          max: 1019,
+          step: 1,
+        },
+      ],
+      callback: async (event) => {
+        const target = teranexTarget(self, event.options.box);
+        if (!target) return;
+        const path = String(event.options.path);
+        self.setPath(
+          path,
+          clampPathValue(path, Number(event.options.value)),
+          target.box,
+        );
+      },
+    },
+    teranex_adjust: {
+      name: "Teranex: adjust value by delta (ideal for knobs)",
+      options: [
+        boxOption,
+        {
+          id: "path",
+          type: "dropdown",
+          label: "Control",
+          default: "procamp/gain",
+          choices: teranexNumberChoices,
+        },
+        {
+          id: "delta",
+          type: "number",
+          label: "Delta per trigger (CW positive, CCW negative)",
+          default: 1,
+          min: -1000,
+          max: 1000,
+          step: 1,
+        },
+      ],
+      callback: async (event) => {
+        const target = teranexTarget(self, event.options.box);
+        if (!target) return;
+        const path = String(event.options.path);
+        // Variables mirror the SELECTED box only, so an explicit other box has no known value to add to.
+        const current =
+          target.box && target.box !== self.getSelectedBoxId()
+            ? undefined
+            : self.getControlNumber(path);
+        if (current === undefined) {
+          self.log(
+            "warn",
+            `No known value for '${path}' yet - requesting state.`,
+          );
+          self.requestState(target.box);
+          return;
+        }
+        const delta = Number(event.options.delta) || pathStep(path);
+        self.setPath(path, clampPathValue(path, current + delta), target.box);
+      },
+    },
+    teranex_reset: {
+      name: "Teranex: reset value to default",
+      options: [
+        boxOption,
+        {
+          id: "path",
+          type: "dropdown",
+          label: "Control",
+          default: "procamp/gain",
+          choices: teranexNumberChoices,
+        },
+      ],
+      callback: async (event) => {
+        const target = teranexTarget(self, event.options.box);
+        if (!target) return;
+        const path = String(event.options.path);
+        if (!teranexNumber(path)) return;
+        self.resetPath(path, target.box);
+      },
+    },
+    teranex_reset_group: {
+      name: "Teranex: reset group",
+      description:
+        "Back to factory values. 'Everything' also turns the test pattern and tone off.",
+      options: [
+        boxOption,
+        {
+          id: "group",
+          type: "dropdown",
+          label: "Group",
+          default: "procamp",
+          choices: [
+            ...Object.entries(TERANEX_RESET_GROUPS).map(([id, g]) => ({
+              id,
+              label: g.label,
+            })),
+            { id: "all", label: "Everything" },
+          ],
+        },
+      ],
+      callback: async (event) => {
+        const target = teranexTarget(self, event.options.box);
+        if (!target) return;
+        const group = String(event.options.group);
+        // Omitting paths makes the app reset every resettable Teranex control.
+        self.resetPaths(
+          group === "all" ? undefined : TERANEX_RESET_GROUPS[group]?.paths,
+          target.box,
+        );
+      },
+    },
+    teranex_test_pattern: {
+      name: "Teranex: test pattern",
+      options: [
+        boxOption,
+        {
+          id: "pattern",
+          type: "dropdown",
+          label: "Pattern",
+          default: "SMPTEBars",
+          choices: choicesOf(TERANEX_PATTERNS),
+        },
+      ],
+      callback: async (event) => {
+        const target = teranexTarget(self, event.options.box);
+        if (!target) return;
+        self.setPath(
+          "testpattern/pattern",
+          String(event.options.pattern),
+          target.box,
+        );
+      },
+    },
+    teranex_test_tone: {
+      name: "Teranex: test tone",
+      description: "Only audible while a test pattern is on.",
+      options: [
+        boxOption,
+        {
+          id: "tone",
+          type: "dropdown",
+          label: "Tone",
+          default: "Tone1500Hz",
+          choices: choicesOf(TERANEX_TONES),
+        },
+      ],
+      callback: async (event) => {
+        const target = teranexTarget(self, event.options.box);
+        if (!target) return;
+        self.setPath(
+          "testpattern/tone",
+          String(event.options.tone),
+          target.box,
+        );
+      },
+    },
+    teranex_no_signal: {
+      name: "Teranex: output on signal loss",
+      options: [
+        boxOption,
+        {
+          id: "value",
+          type: "dropdown",
+          label: "Output",
+          default: "Black",
+          choices: choicesOf(TERANEX_NO_SIGNAL),
+        },
+      ],
+      callback: async (event) => {
+        const target = teranexTarget(self, event.options.box);
+        if (!target) return;
+        self.setPath(
+          "testpattern/nosignal",
+          String(event.options.value),
+          target.box,
+        );
+      },
+    },
+    teranex_motion: {
+      name: "Teranex: test pattern motion",
+      options: [
+        boxOption,
+        {
+          id: "mode",
+          type: "dropdown",
+          label: "Motion",
+          default: "toggle",
+          choices: [
+            { id: "on", label: "On" },
+            { id: "off", label: "Off" },
+            { id: "toggle", label: "Toggle" },
+          ],
+        },
+      ],
+      callback: async (event) => {
+        const target = teranexTarget(self, event.options.box);
+        if (!target) return;
+        const mode = String(event.options.mode);
+        const on =
+          mode === "toggle"
+            ? self.getControlNumber("testpattern/motion") !== 1
+            : mode === "on";
+        self.setPath("testpattern/motion", on ? 1 : 0, target.box);
+      },
+    },
+    teranex_preset_recall: {
+      name: "Teranex: recall preset",
+      options: [
+        boxOption,
+        {
+          id: "preset",
+          type: "dropdown",
+          label: "Preset",
+          default: "1",
+          choices: teranexPresetChoices,
+        },
+      ],
+      callback: async (event) => {
+        const target = teranexTarget(self, event.options.box);
+        if (!target) return;
+        self.setPath("preset/recall", Number(event.options.preset), target.box);
+      },
+    },
+    teranex_preset_save: {
+      name: "Teranex: save current setup to preset",
+      description: "Overwrites the preset on the Teranex.",
+      options: [
+        boxOption,
+        {
+          id: "preset",
+          type: "dropdown",
+          label: "Preset",
+          default: "1",
+          choices: teranexPresetChoices,
+        },
+      ],
+      callback: async (event) => {
+        const target = teranexTarget(self, event.options.box);
+        if (!target) return;
+        self.setPath("preset/save", Number(event.options.preset), target.box);
+      },
+    },
+    teranex_preset_rename: {
+      name: "Teranex: rename preset",
+      options: [
+        boxOption,
+        {
+          id: "preset",
+          type: "dropdown",
+          label: "Preset",
+          default: "1",
+          choices: teranexPresetChoices,
+        },
+        {
+          id: "name",
+          type: "textinput",
+          label: "Name (max 32 characters)",
+          default: "",
+        },
+      ],
+      callback: async (event) => {
+        const target = teranexTarget(self, event.options.box);
+        if (!target) return;
+        const name = String(event.options.name || "").trim();
+        if (!name) return;
+        self.setPath(
+          teranexPresetNamePath(Number(event.options.preset)),
+          name,
+          target.box,
+        );
       },
     },
   });
